@@ -1,0 +1,6 @@
+node_modules/
+.env
+
+# Intentionally NOT ignoring .api-mirror/
+# Commit your recordings so teammates never hit a dead backend.
+# See: https://github.com/your-org/api-mirror#git-workflow

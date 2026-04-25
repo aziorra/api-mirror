@@ -1,0 +1,21 @@
+{
+  "name": "api-mirror",
+  "version": "0.1.0",
+  "description": "A lightweight, Git-friendly API proxy that records and replays responses",
+  "main": "src/server.js",
+  "bin": {
+    "api-mirror": "./bin/api-mirror.js"
+  },
+  "scripts": {
+    "start": "node bin/api-mirror.js",
+    "dev": "node bin/api-mirror.js --verbose"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "http-proxy-middleware": "^3.0.0"
+  },
+  "keywords": ["proxy", "api", "mirror", "mock", "offline", "record", "replay"],
+  "license": "MIT"
+}
