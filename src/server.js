@@ -11,6 +11,12 @@ const SKIP_HEADERS = [
   "transfer-encoding",
   "content-encoding",
   "content-length",
+  "access-control-allow-origin",
+  "access-control-allow-methods",
+  "access-control-allow-headers",
+  "access-control-allow-credentials",
+  "access-control-expose-headers",
+  "access-control-max-age",
 ];
 
 function serveFromMirror(req, res, verbose) {
@@ -34,6 +40,19 @@ function serveFromMirror(req, res, verbose) {
 function createServer() {
   const app = express();
   app.use(express.json());
+
+  // CORS — allow any origin so the frontend port never gets blocked
+  app.use((req, res, next) => {
+    res.set("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.set(
+      "Access-Control-Allow-Headers",
+      req.headers["access-control-request-headers"] || "Content-Type,Authorization",
+    );
+    res.set("Access-Control-Allow-Credentials", "true");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
+  });
 
   // Dynamic latency middleware (reads config at request time)
   app.use((req, res, next) => {
