@@ -1,6 +1,6 @@
 # api-mirror
 
-> Tired of _"the backend is down"_ excuses? **api-mirror** is a lightweight proxy that silently records every API response and replays them the moment your backend goes offline - no config, no mocks to write.
+> Tired of _"the backend is down"_ excuses? **api-mirror** is a lightweight proxy that silently records every API response and replays them the moment your backend goes offline — no config, no mocks to write.
 
 Commit your `.api-mirror/` folder and your entire team shares the same safety net.
 
@@ -9,86 +9,162 @@ Commit your `.api-mirror/` folder and your entire team shares the same safety ne
 ## How it works
 
 ```
-Your App  →  api-mirror (localhost:3000)  →  Real API
-                      ↓
-              .api-mirror/
-              GET_users_a1b2c3d4.json
-              POST_auth_login_e5f6g7h8.json
-              ...
+Frontend (e.g. localhost:5173)
+        ↓  all API calls go here
+api-mirror proxy (e.g. localhost:5000)   ← records every 200 OK response
+        ↓  forwards to real backend
+Backend API (e.g. localhost:3000)
+        ↓  backend goes down?
+api-mirror auto-serves from .api-mirror/ folder (no change needed in frontend)
 ```
 
-1. **Proxy mode** - every `200 OK` response is automatically saved to `.api-mirror/`
-2. **Auto-failover** - if the backend goes down (`ECONNREFUSED`), api-mirror silently serves the saved file
-3. **Mirror mode** - flip a flag and work fully offline, no backend needed at all
-4. **Dashboard** - edit any saved response at `http://localhost:3000/_mirror`
+1. **Proxy mode** — every `200 OK` response is automatically saved to `.api-mirror/`
+2. **Auto-failover** — if the backend goes down (`ECONNREFUSED`), api-mirror silently serves the saved file
+3. **Mirror mode** — flip a flag and work fully offline, no backend needed at all
+4. **Dashboard** — browse, edit, and delete any saved response at `http://localhost:5000/_mirror`
 
 ---
 
-## Installation
+## Setup
 
-### Use without installing (recommended for quick start)
+### Step 1 — Install in your frontend project
 
-```bash
-npx api-mirror --target https://api.example.com
-```
-
-### Install globally
+Go into your **frontend** project folder and install as a dev dependency:
 
 ```bash
-npm install -g api-mirror
-api-mirror --target https://api.example.com
-```
-
-### Install in a project
-
-```bash
+cd my-frontend-app
 npm install --save-dev api-mirror
 ```
 
-Then add to your `package.json`:
+> **Why frontend?** api-mirror sits between your frontend and backend. Your frontend calls the proxy, the proxy calls the backend and records responses.
+
+---
+
+### Step 2 — Add a proxy script to package.json
+
+Open your frontend project's `package.json` and add a `proxy` script:
 
 ```json
 {
   "scripts": {
-    "proxy": "api-mirror --target https://api.example.com"
+    "dev": "vite",
+    "proxy": "api-mirror --target http://localhost:3000 --port 5000 --verbose"
   }
 }
 ```
 
+Replace:
+
+- `http://localhost:3000` with your actual backend URL
+- `5000` with any free port you want the proxy to listen on
+
 ---
 
-## Quick Start
+### Step 3 — Update your frontend API base URL
 
-**Step 1 - Point it at your API:**
+Change your frontend's API base URL from the backend directly to the proxy port.
 
-```bash
-api-mirror --target https://jsonplaceholder.typicode.com
+**Example — using a `.env` file in your frontend:**
+
+```env
+# Before
+VITE_API_BASE_URL=http://localhost:3000
+
+# After
+VITE_API_BASE_URL=http://localhost:5000
 ```
 
-**Step 2 - Make requests through the proxy:**
+**Example — hardcoded in code:**
 
-```bash
-curl http://localhost:3000/users
-curl http://localhost:3000/posts/1
+```js
+// Before
+const API_BASE = "http://localhost:3000";
+
+// After
+const API_BASE = "http://localhost:5000";
 ```
 
-Responses are automatically saved to `.api-mirror/`.
+---
 
-**Step 3 - Kill your backend. Keep working:**
+### Step 4 — (Optional) Configure via .env file
+
+Instead of passing flags every time, create a `.env` file in your frontend project root:
 
 ```bash
-# Backend is down? api-mirror serves from the saved files automatically.
-curl http://localhost:3000/users   # still works
+cp node_modules/api-mirror/.env.example .env
 ```
 
-**Step 4 - Commit the recordings:**
+Then edit `.env`:
+
+```env
+TARGET_URL=http://localhost:3000    # your backend URL
+PORT=5000                           # port for the proxy to listen on
+MIRROR_MODE=false                   # true = offline mode, no backend needed
+LATENCY=0                           # simulate slow network (milliseconds)
+```
+
+CLI flags always override `.env` values.
+
+---
+
+## Running the Project
+
+### Normal development (backend is running)
+
+Open **two terminals**:
+
+**Terminal 1 — Start the proxy:**
+
+```bash
+npm run proxy
+```
+
+**Terminal 2 — Start your frontend:**
+
+```bash
+npm run dev
+```
+
+Now every API call your frontend makes goes through the proxy at port 5000, gets forwarded to your backend at port 3000, and the response is automatically saved to `.api-mirror/`.
+
+---
+
+### Offline development (backend is down or not available)
+
+Run the proxy in mirror mode — it serves all responses from the saved `.api-mirror/` files:
+
+```bash
+npx api-mirror --mirror --port 5000
+```
+
+Or add it to `package.json`:
+
+```json
+{
+  "scripts": {
+    "proxy:offline": "api-mirror --mirror --port 5000"
+  }
+}
+```
+
+Then run your frontend as normal — it will never know the backend is gone.
+
+---
+
+### First time setup — record your endpoints
+
+1. Start your backend
+2. Run `npm run proxy`
+3. Open your frontend and use every feature (login, list pages, detail pages, etc.)
+4. Each endpoint you hit gets recorded to `.api-mirror/`
+5. Commit the recordings:
 
 ```bash
 git add .api-mirror/
 git commit -m "chore: add api mirror recordings"
 ```
 
-Your teammates now get the same recordings when they clone the repo.
+Your teammates now get all the same recordings when they clone the repo.
 
 ---
 
@@ -98,7 +174,7 @@ Your teammates now get the same recordings when they clone the repo.
 Usage: api-mirror [options]
 
 Options:
-  -t, --target <url>    Target API URL to proxy
+  -t, --target <url>    Target API URL to proxy (e.g. http://localhost:3000)
   -p, --port <number>   Port to listen on (default: 3000)
   -m, --mirror          Mirror mode - serve from .api-mirror/ only, no live backend
   -l, --latency <ms>    Simulated response latency in milliseconds (default: 0)
@@ -111,57 +187,35 @@ Options:
 
 ```bash
 # Basic proxy + recorder
-api-mirror --target https://api.example.com
+api-mirror --target http://localhost:3000 --port 5000
 
-# Different port
-api-mirror --target https://api.example.com --port 8080
+# Fully offline — serve from recordings only
+api-mirror --mirror --port 5000
 
-# Fully offline - serve from recordings only
-api-mirror --mirror
+# Simulate slow network (2 second delay on every response)
+api-mirror --target http://localhost:3000 --port 5000 --latency 2000
 
-# Test slow connections (2 second delay on every response)
-api-mirror --target https://api.example.com --latency 2000
-
-# Verbose - see every request logged
-api-mirror --target https://api.example.com --verbose
+# See every request logged to the console
+api-mirror --target http://localhost:3000 --port 5000 --verbose
 ```
-
----
-
-## Environment Variables
-
-Copy `.env.example` to `.env` to configure via file instead of flags:
-
-```bash
-cp .env.example .env
-```
-
-```env
-TARGET_URL=https://api.example.com
-PORT=3000
-MIRROR_MODE=false
-LATENCY=0
-```
-
-CLI flags always override `.env` values.
 
 ---
 
 ## Dashboard
 
-Open **`http://localhost:3000/_mirror`** in your browser while the proxy is running.
+Open **`http://localhost:5000/_mirror`** in your browser while the proxy is running.
 
 The dashboard lets you:
 
 - Browse all saved recordings with method, path, status code, and timestamp
-- Edit any response body (live JSON editor - saves overwrite the file on disk)
+- Edit any response body (live JSON editor — saves overwrite the file on disk)
 - Delete individual recordings
 - Toggle **Mirror Mode** on/off without restarting
-- Adjust **latency** on the fly with the number input
+- Adjust **latency** on the fly without restarting
 
 ---
 
-## Recordings - the `.api-mirror/` folder
+## Recordings — the `.api-mirror/` folder
 
 Each saved response is a plain JSON file:
 
@@ -174,7 +228,7 @@ Each saved response is a plain JSON file:
 
 Filename format: `{METHOD}_{path}_{hash}.json`
 
-The hash is derived from the method + path + query params, so the same request always maps to the same file. A sample file looks like:
+The hash is derived from the method + path + query params, so the same request always maps to the same file. A sample file:
 
 ```json
 {
@@ -189,73 +243,92 @@ The hash is derived from the method + path + query params, so the same request a
 }
 ```
 
-You can edit the `body` field directly in a text editor or via the dashboard to simulate different states (empty lists, error payloads, edge cases).
+You can edit the `body` field directly in a text editor or via the dashboard to simulate different API states.
 
 ### Git workflow
 
 ```gitignore
-# .gitignore
+# .gitignore — keep it like this
 node_modules/
+.env
 
-# .api-mirror/ is intentionally NOT ignored - commit it!
+# DO NOT add .api-mirror/ here
+# Commit your recordings so teammates never hit a dead backend
 ```
 
 ---
 
 ## Common Use Cases
 
-### Frontend development without a backend
+### Frontend dev without a backend
 
 ```bash
-# Day 1: backend is running - record everything
-api-mirror --target http://localhost:4000
+# Day 1: backend is running — record everything
+npm run proxy
 
-# Day 2: backend team is away - work offline
-api-mirror --mirror
+# Day 2: backend team is away — work offline
+npx api-mirror --mirror --port 5000
 ```
 
 ### Simulate slow network conditions
 
 ```bash
-# Every request takes 3 seconds - great for testing loading states
-api-mirror --target https://api.example.com --latency 3000
+# Every request takes 3 seconds — great for testing loading states
+api-mirror --target http://localhost:3000 --port 5000 --latency 3000
 ```
 
-### Test with edited response data
+### Edit a response to test edge cases
 
-1. Run the proxy and make a request to record it
-2. Open `http://localhost:3000/_mirror`
+1. Run the proxy and use the app to record a request
+2. Open `http://localhost:5000/_mirror`
 3. Find the recording and click it to expand
-4. Edit the JSON body (e.g., change a list to be empty)
+4. Edit the JSON body (e.g., make a list empty, change a status field)
 5. Click **Save Changes**
-6. Re-run your app - it now gets the edited response
+6. Reload your app — it now gets the edited response
 
 ### Share a reproducible API state with your team
 
 ```bash
-# Record the "happy path" state
-api-mirror --target https://api.example.com
-# ... make the requests you want to capture ...
+# Record the "happy path" data
+npm run proxy
+# ... click through the app to hit every endpoint ...
 
-# Commit
+# Commit recordings
 git add .api-mirror/
-git commit -m "recording: happy path with full user list"
+git commit -m "recording: happy path with full product list"
 
-# Teammates run offline with the same data
-api-mirror --mirror
+# Teammates run offline with exactly the same data
+npx api-mirror --mirror --port 5000
 ```
 
 ---
 
 ## Failover Behaviour
 
-| Situation | Behaviour |
-|---|---|
-| Backend returns `200 OK` | Response proxied + saved to `.api-mirror/` |
-| Backend returns non-200 | Response proxied, **not** saved |
-| Backend is down (`ECONNREFUSED`) | Serves matching `.api-mirror/` file automatically |
-| Backend is down, no recording | Returns `503` with a helpful error message |
-| `--mirror` flag set | Always serves from `.api-mirror/`, never contacts backend |
+| Situation                        | Behaviour                                                 |
+| -------------------------------- | --------------------------------------------------------- |
+| Backend returns `200 OK`         | Response proxied + saved to `.api-mirror/`                |
+| Backend returns non-200          | Response proxied, **not** saved                           |
+| Backend is down (`ECONNREFUSED`) | Serves matching `.api-mirror/` file automatically         |
+| Backend is down, no recording    | Returns `503` with a helpful error message                |
+| `--mirror` flag set              | Always serves from `.api-mirror/`, never contacts backend |
+
+---
+
+## Use without installing (npx)
+
+No install needed — use npx for a quick start:
+
+```bash
+npx api-mirror --target http://localhost:3000 --port 5000
+```
+
+### Install globally
+
+```bash
+npm install -g api-mirror
+api-mirror --target http://localhost:3000 --port 5000
+```
 
 ---
 
