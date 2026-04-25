@@ -10,7 +10,7 @@ const { getConfig, setConfig } = require("../config");
 
 function createDashboardRouter() {
   const router = express.Router();
-  router.use(express.json());
+  router.use(express.json({ limit: "1mb" }));
 
   router.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "index.html"));
@@ -53,6 +53,9 @@ function createDashboardRouter() {
     const updates = {};
     for (const key of allowed) {
       if (key in req.body) updates[key] = req.body[key];
+    }
+    if (typeof updates.latency === "number") {
+      updates.latency = Math.min(Math.max(0, updates.latency), 30000);
     }
     setConfig(updates);
     res.json(getConfig());

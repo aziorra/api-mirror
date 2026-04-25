@@ -6,6 +6,15 @@ function getMirrorDir() {
   return path.resolve(process.cwd(), ".api-mirror");
 }
 
+function safeFilePath(filename) {
+  const dir = getMirrorDir();
+  const resolved = path.resolve(dir, filename);
+  if (!resolved.startsWith(dir + path.sep)) {
+    throw new Error("Invalid filename");
+  }
+  return resolved;
+}
+
 function getFilename(method, urlPath, query) {
   const queryStr = Object.keys(query).length ? JSON.stringify(query) : "";
   const raw = `${method}:${urlPath}:${queryStr}`;
@@ -78,15 +87,13 @@ function listRecordings() {
 }
 
 function getRecording(filename) {
-  const dir = getMirrorDir();
-  const filepath = path.join(dir, filename);
+  const filepath = safeFilePath(filename);
   if (!fs.existsSync(filepath)) return null;
   return JSON.parse(fs.readFileSync(filepath, "utf8"));
 }
 
 function updateRecording(filename, body) {
-  const dir = getMirrorDir();
-  const filepath = path.join(dir, filename);
+  const filepath = safeFilePath(filename);
   if (!fs.existsSync(filepath)) throw new Error("Recording not found");
   const data = JSON.parse(fs.readFileSync(filepath, "utf8"));
   data.body = body;
@@ -95,8 +102,7 @@ function updateRecording(filename, body) {
 }
 
 function deleteRecording(filename) {
-  const dir = getMirrorDir();
-  const filepath = path.join(dir, filename);
+  const filepath = safeFilePath(filename);
   if (!fs.existsSync(filepath)) throw new Error("Recording not found");
   fs.unlinkSync(filepath);
 }
